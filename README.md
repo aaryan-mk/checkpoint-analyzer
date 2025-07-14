@@ -9,6 +9,7 @@ checkpoint-analyzer/
 ├── scripts/
 │   ├── analyze.py           # Main analysis script
 │   └── run_analyzer.sh      # Bash script to run analysis
+├── outputs/                 # All analysis outputs (results, statistics, etc.)
 ├── environment.yml          # Conda environment configuration
 └── setup.sh                 # Automated environment setup script
 ```
@@ -90,7 +91,7 @@ python analyze.py \
 
 - Edit `scripts/run_analyzer.sh` to set:
   - `INPUT_JSON` (input file path)
-  - `OUTPUT_JSON`, `OUTPUT_CSV` (output file names)
+  - `OUTPUT_JSON`, `OUTPUT_CSV` (output file names, e.g., `../outputs/results.jsonl`, `../outputs/statistics.csv`)
   - `NUM_WORKERS`, `BATCH_SIZE`, `DURATION_THRESHOLD` (processing parameters)
 
 ## Scripts Directory
@@ -124,10 +125,10 @@ python analyze.py \
 
 ---
 
-For more details on pipeline logic, error categories, and output formats, see the full documentation sections below in this README. 
+For more details on pipeline logic, error categories, and output formats, see the full documentation sections below in this README.
 
 ## Credits
 
 This codebase was built by:
 - **svp**
-- **amk**
+- **amk** 
