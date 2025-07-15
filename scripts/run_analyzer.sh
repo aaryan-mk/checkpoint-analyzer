@@ -2,8 +2,10 @@
 
 # Configuration
 INPUT_JSON="/projects/data/ttsteam/repos/aaryan/checkpoint-analyzer/subset_predictions_all.json"
-OUTPUT_JSON="outputs/analysis_results_predictions_all.jsonl"
-OUTPUT_CSV="outputs/analysis_statistics_predictions_all.csv"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+OUTPUT_JSON="$PROJECT_ROOT/outputs/analysis_results_predictions_all.jsonl"
+OUTPUT_CSV="$PROJECT_ROOT/outputs/analysis_statistics_predictions_all.csv"
 NUM_WORKERS=16
 BATCH_SIZE=124
 DURATION_THRESHOLD=0.2  # Minimum duration in seconds for audio to be considered valid
@@ -19,6 +21,9 @@ if ! command -v python &> /dev/null; then
     echo "Error: Python is not installed or not in PATH"
     exit 1
 fi
+
+# Create outputs directory if it doesn't exist
+mkdir -p "$PROJECT_ROOT/outputs"
 
 # Display configuration
 echo "=== Audio Analysis Configuration ==="
