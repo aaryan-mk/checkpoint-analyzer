@@ -17,9 +17,9 @@ checkpoint-analyzer/
 ## Features
 
 - **Automated Setup**: One-command environment setup with progress tracking
-- **Audio Quality Analysis**: Duration, energy, speech content, and whistle/beep detection
+- **Audio Quality Analysis**: Duration, energy, speech content, beep detection, and whistle detection
 - **Text Quality Analysis**: WER, CER, BERT score, Levenshtein distance, word ratio
-- **Error Classification**: 12 distinct categories for comprehensive error analysis
+- **Error Classification**: 11 distinct categories for comprehensive error analysis
 - **Performance Optimized**: Fast audio filtering with expensive text analysis only when needed
 - **Professional Output**: Clean terminal display and CSV statistics export
 - **Configurable Parameters**: Tunable thresholds and processing options
@@ -87,6 +87,24 @@ python analyze.py \
     --duration_threshold 0.2
 ```
 
+### Configuration and Tuning
+
+For detailed information about all configurable parameters, thresholds, and tuning guidance:
+
+```bash
+cd scripts
+python analyze.py --help
+```
+
+The script includes comprehensive inline documentation for:
+- **Audio quality thresholds** (duration, RMS, VAD, beep/whistle detection)
+- **Text analysis parameters** (BERTScore, Levenshtein, word ratio thresholds)
+- **Processing settings** (GPU usage, worker count, batch size optimization)
+- **Performance tuning** recommendations for different system types
+- **Error classification** logic and thresholds
+
+All parameters are documented with their default values, valid ranges, and specific tuning guidance for different use cases.
+
 ### Script Configuration
 
 - Edit `scripts/run_analyzer.sh` to set:
@@ -98,11 +116,13 @@ python analyze.py \
 
 - **`scripts/analyze.py`**: Main Python analysis script (audio/text checks, error classification)
 - **`scripts/run_analyzer.sh`**: Bash script to run the analysis with pre-configured settings
+- **`scripts/detect_beep.py`**: Standalone beep detection script for testing and validation
 
 **Usage Tips:**
 - Always activate the environment before running scripts: `conda activate audio-analysis`
 - Always run analysis scripts from within the `scripts/` directory.
 - For custom runs, use `python analyze.py --help` for all options.
+- Test beep detection independently with `python detect_beep.py` before integration.
 
 ## Troubleshooting
 
@@ -123,6 +143,49 @@ python analyze.py \
 4. Test with `./setup.sh` and `cd scripts && ./run_analyzer.sh`
 5. Submit a pull request
 
+## Error Categories
+
+The pipeline classifies errors into **11 distinct categories** across 5 groups:
+
+### **Audio Quality Issues** (Red) - 5 categories
+- `"Noise (low energy)"` - Audio too quiet
+- `"Noise (low speech content)"` - Not enough speech detected by VAD
+- `"Poor TTS Generation (too short)"` - Audio duration below threshold
+- `"Noise (beep detected)"` - High confidence beep detected in first 10ms
+- `"Noise (whistling detected)"` - Whistling tones detected
+
+### **Perfect Matches** (Green) - 1 category
+- `"Perfect Match"` - Exact match between prediction and ground truth
+
+### **Minor Issues** (Yellow) - 1 category
+- `"Minor ASR Error"` - Small differences with high semantic similarity
+
+### **TTS Issues** (Magenta) - 3 categories
+- `"TTS Omission"` - TTS missed words
+- `"TTS Unintelligible Output"` - Poor semantic match but reasonable length
+- `"TTS Hallucination"` - Includes both insertions and major hallucinations
+
+### **Miscellaneous** (White) - 1 category
+- `"Processing Error"` - Technical errors during analysis
+- `"Miscellaneous"` - Any other unclassified issues
+
+## Audio Quality Pipeline
+
+The audio quality checks are performed in the following order:
+
+1. **Duration Check** - Ensures audio meets minimum length requirement
+2. **RMS Energy Check** - Validates audio has sufficient energy
+3. **Speech Content (VAD)** - Confirms presence of speech using Voice Activity Detection
+4. **Beep Detection** - Fast, early detection of beep artifacts in first 60ms
+5. **Whistle Detection** - Full audio analysis for whistling tones
+
+### Beep Detection Features
+- **High Sensitivity**: Detects beeps with RMS threshold as low as 0.00005
+- **Dual Confidence Levels**: Soft (20ms) and strict (10ms) thresholds
+- **Multiple Detection Paths**: 5/6 conditions OR strong combo detection
+- **Early Filtering**: Only processes first 60ms for efficiency
+- **Strict Classification**: Only flags high confidence (≤10ms) beeps
+
 ---
 
 For more details on pipeline logic, error categories, and output formats, see the full documentation sections below in this README.
@@ -131,4 +194,4 @@ For more details on pipeline logic, error categories, and output formats, see th
 
 This codebase was built by:
 - **svp**
-- **amk** 
+- **amk**
