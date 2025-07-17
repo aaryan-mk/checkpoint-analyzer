@@ -32,6 +32,62 @@ import string
 np.complex = complex
 np.float = float
 
+def detect_beep_with_confidence(y, sr, max_duration_sec=0.06, confidence_cutoff_strict=0.010, confidence_cutoff_soft=0.020):
+    """
+    Detects beep-like sounds within the first 60 milliseconds of an audio signal.
+    Returns True if beep is detected, else False.
+
+    Parameters (modify these thresholds as needed):
+        max_duration_sec (float): Maximum duration to analyze for beep (default=0.06s)
+        confidence_cutoff_strict (float): High confidence if detected before this time (default=0.010s)
+        confidence_cutoff_soft (float): Soft confidence if detected before this time (default=0.020s)
+    """
+    try:
+        n_samples = int(sr * max_duration_sec)
+        y_start = y[:n_samples]
+        y_mono = np.mean(y_start, axis=0) if y_start.ndim == 2 else y_start
+
+        hop_length = 256
+        frame_length = 1024
+
+        rms = librosa.feature.rms(y=y_mono, frame_length=frame_length, hop_length=hop_length)[0]
+        centroid = librosa.feature.spectral_centroid(y=y_mono, sr=sr, hop_length=hop_length)[0]
+        bandwidth = librosa.feature.spectral_bandwidth(y=y_mono, sr=sr, hop_length=hop_length)[0]
+        zcr = librosa.feature.zero_crossing_rate(y=y_mono, frame_length=frame_length, hop_length=hop_length)[0]
+        flatness = librosa.feature.spectral_flatness(y=y_mono, hop_length=hop_length)[0]
+        rolloff = librosa.feature.spectral_rolloff(y=y_mono, sr=sr, hop_length=hop_length)[0]
+
+        satisfied = []
+        for i in range(len(rms)):
+            timestamp = librosa.frames_to_time(i, sr=sr, hop_length=hop_length)
+            if timestamp > max_duration_sec:
+                break
+
+            conditions = [
+                rms[i] > 0.00005,
+                centroid[i] > 2200,
+                bandwidth[i] < 2500,
+                zcr[i] > 0.18,
+                flatness[i] > 0.18,
+                rolloff[i] > 4500
+            ]
+            count = sum(conditions)
+            strong_combo = rms[i] > 0.00007 and flatness[i] > 0.20
+            satisfied.append((count >= 5 or strong_combo, timestamp))
+
+        for i in range(len(satisfied) - 1):
+            valid1, ts1 = satisfied[i]
+            valid2, ts2 = satisfied[i + 1]
+            if valid1 and valid2:
+                if ts1 <= confidence_cutoff_soft:
+                    return bool(ts1 <= confidence_cutoff_strict)  # Only return True if high confidence (≤0.010s)
+
+        return False
+        
+    except Exception as e:
+        logging.error(f"Error in beep detection: {str(e)}")
+        return False
+
 def detect_whistling_final(y, sr, flatness_threshold=0.015, 
                          min_sustain_seconds=0.4, energy_threshold=-80, 
                          rms_threshold_db=0, band_width=300):
@@ -157,7 +213,11 @@ class AudioAnalyzer:
             if speech_ratio < 0.2:  # Change this threshold for stricter/looser speech filtering
                 return False, "Noise (low speech content)"
             
-            # 4. Whistle check
+            # 4. Beep check (fast, early detection)
+            if detect_beep_with_confidence(y, sr):  # See function above for tunable params
+                return False, "Noise (beep detected)"
+            
+            # 5. Whistle check
             if detect_whistling_final(y, sr):  # See function above for tunable params
                 return False, "Noise (whistling detected)"
             
@@ -246,7 +306,7 @@ class AudioAnalyzer:
                 return "Minor ASR Error"
             elif levenshtein <= 100:
                 if word_ratio > 1:
-                    return "TTS Insertion"
+                    return "TTS Hallucination"  # Merged with TTS Insertion
                 else:  # word_ratio <= 1
                     return "TTS Omission"
             else:  # levenshtein > 100
@@ -395,7 +455,7 @@ def main():
         "Audio Quality Issues": {
             "color": "red",
             "categories": ["Noise (low energy)", "Noise (low speech content)", 
-                          "Poor TTS Generation (too short)", "Noise (whistling detected)"],
+                          "Poor TTS Generation (too short)", "Noise (beep detected)", "Noise (whistling detected)"],
             "description": "Issues detected in audio before ASR processing"
         },
         "Perfect Matches": {
@@ -410,7 +470,7 @@ def main():
         },
         "TTS Issues": {
             "color": "magenta",
-            "categories": ["TTS Insertion", "TTS Omission", "TTS Unintelligible Output", "TTS Hallucination"],
+            "categories": ["TTS Omission", "TTS Unintelligible Output", "TTS Hallucination"],
             "description": "Major TTS-related problems"
         },
         "Miscellaneous": {
